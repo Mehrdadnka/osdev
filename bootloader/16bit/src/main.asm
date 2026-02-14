@@ -1,4 +1,13 @@
 ; ============================================================
+; DESIGN NOTES
+; ------------------------------------------------------------
+; - We assume BIOS loads us at 0x0000:0x7C00
+; - CS normalization intentionally skipped
+; - Stack placed at 0x7C00 for minimal usage
+; - Only BIOS teletype interrupt (int 0x10, ah=0x0E) used
+; ============================================================
+
+; ============================================================
 ; Bootloader - Stage 1 (Minimal & Safe)
 ; ============================================================
 ; Architecture : x86 (Real Mode)
