@@ -1,12 +1,5 @@
-# ============================================================
-# Bootloader CI/CD Pipeline
-# ============================================================
-# Builds and tests the x86 bootloader on every push/PR to main
-# ============================================================
+name: Bootloader CI/CD
 
-name: Build Bootloader CI/CD
-
-# Trigger on pushes and PRs to main branch
 on:
   push:
     branches: [ "main" ]
@@ -18,40 +11,18 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    # Step 1: Get the source code
     - uses: actions/checkout@v4
     
-    # Step 2: Install NASM assembler
     - name: Install NASM
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y nasm
+      run: sudo apt-get update && sudo apt-get install -y nasm
     
-    # Step 3: Compile bootloader using Makefile
     - name: Build with make
       run: make
     
-    # Step 4: Save build outputs for download
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
         name: bootloader-image
         path: |
-          build/main.bin        # Raw 512-byte bootloader
-          build/main_floppy.img  # 1.44MB floppy image
-
-# ============================================================
-# What it does:
-# 1. Triggers on code push to main or PR
-# 2. Installs NASM on Ubuntu
-# 3. Runs 'make' to build bootloader
-# 4. Saves outputs as downloadable artifacts
-#
-# Output files:
-# - main.bin: Raw bootloader binary
-# - main_floppy.img: Bootable floppy image
-#
-# How to use:
-# - Check "Actions" tab after push
-# - Download artifacts to test locally
-# ============================================================
+          build/main.bin
+          build/main_floppy.img
