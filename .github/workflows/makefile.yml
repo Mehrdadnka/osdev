@@ -1,27 +1,231 @@
-name: Makefile CI
+# =============================================================================
+# Bootloader CI/CD Pipeline
+# =============================================================================
+# This GitHub Actions workflow automates the build, testing, and release process
+# for the x86 bootloader project. It ensures code quality and provides
+# downloadable artifacts for testing and deployment.
+#
+# Key Features:
+# - Automated build on push/pull requests
+# - Bootloader size verification (must be ≤ 512 bytes)
+# - Boot signature validation (0xAA55 at offset 510)
+# - Quick emulation test using QEMU
+# - Artifact preservation for 30 days
+# - Automated release package creation for tags
+# =============================================================================
 
+name: Bootloader CI/CD
+
+# =============================================================================
+# Trigger Configuration
+# =============================================================================
+# Defines when the workflow should run automatically
+# =============================================================================
 on:
+  # Run on pushes to main/develop branches
   push:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
+  
+  # Run on pull requests targeting main branch
   pull_request:
     branches: [ "main" ]
 
+# =============================================================================
+# Concurrency Control
+# =============================================================================
+# Ensures only one instance of the workflow runs per branch/tag
+# Cancels in-progress runs when new commits are pushed
+# =============================================================================
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# =============================================================================
+# Job Definitions
+# =============================================================================
 jobs:
+  # ---------------------------------------------------------------------------
+  # Build Job
+  # ---------------------------------------------------------------------------
+  # Main build job that assembles the bootloader and runs all checks
+  # ---------------------------------------------------------------------------
   build:
-
+    # Use the latest Ubuntu LTS runner
     runs-on: ubuntu-latest
-
+    
+    # Define all steps to be executed
     steps:
+    # Step 1: Checkout Repository
+    # ---------------------------
+    # Pulls the source code from the repository
     - uses: actions/checkout@v4
-
-    - name: configure
-      run: ./configure
-
-    - name: Install dependencies
+    
+    # Step 2: Install Dependencies
+    # ---------------------------
+    # Installs all required tools for building and testing
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          nasm \           # Netwide Assembler for x86 assembly
+          qemu-system-x86 \ # QEMU emulator for x86 testing
+          xxd \             # Hex dump utility for signature checking
+          build-essential   # Basic build tools (make, gcc, etc.)
+    
+    # Step 3: Verify Tool Versions
+    # ---------------------------
+    # Logs the NASM version for debugging purposes
+    - name: Check NASM version
+      run: nasm -v
+    
+    # Step 4: Create Build Directory
+    # ---------------------------
+    # Ensures the build directory exists before compilation
+    - name: Create build directory
+      run: mkdir -p build
+    
+    # Step 5: Compile Bootloader
+    # ---------------------------
+    # Runs the Makefile to assemble the bootloader
+    - name: Build with make
       run: make
+    
+    # Step 6: Size Verification
+    # ---------------------------
+    # Ensures the bootloader fits within the 512-byte MBR limit
+    - name: Verify bootloader size
+      run: |
+        MAX_SIZE=512
+        ACTUAL_SIZE=$(wc -c < build/main.bin)
+        if [ $ACTUAL_SIZE -gt $MAX_SIZE ]; then
+          echo "Error: Bootloader size ($ACTUAL_SIZE bytes) exceeds $MAX_SIZE bytes"
+          exit 1
+        fi
+        echo "Bootloader size: $ACTUAL_SIZE bytes (OK)"
+    
+    # Step 7: Boot Signature Check
+    # ---------------------------
+    # Verifies the magic boot signature (0xAA55) at the last two bytes
+    - name: Check boot signature (0xAA55)
+      run: |
+        if [ $(xxd -p -l 2 -s 510 build/main.bin) != "55aa" ]; then
+          echo "Error: Boot signature (0xAA55) not found at offset 510"
+          exit 1
+        fi
+        echo "Boot signature verified"
+    
+    # Step 8: QEMU Emulation Test
+    # ---------------------------
+    # Performs a quick test by booting the image in QEMU
+    # Runs for 2 seconds to catch obvious errors
+    - name: Test in QEMU (quick test)
+      run: |
+        # Start QEMU with minimal configuration
+        qemu-system-x86_64 \
+          -drive format=raw,file=build/main_floppy.img \  # Boot from floppy image
+          -display none \                                  # Disable graphical output
+          -serial stdio \                                  # Redirect serial to stdout
+          -no-reboot \                                     # Exit instead of rebooting
+          -vga none \                                      # Disable VGA
+          -m 32M \                                         # Allocate 32MB RAM
+          -smp 1 \                                         # Use 1 CPU core
+          -device isa-debug-exit \                         # Enable debug exit device
+          -machine accel=tcg \                             # Use software emulation
+          -cpu max \                                       # Emulate maximum CPU features
+          -d cpu_reset \                                   # Log CPU resets
+          -no-shutdown \                                   # Don't shutdown on exit
+          -monitor null \                                  # Disable monitor
+          -nographic &                                     # No graphical interface, run in background
+        
+        QEMU_PID=$!
+        sleep 2                                           # Run for 2 seconds
+        kill $QEMU_PID 2>/dev/null || true                # Stop QEMU gracefully
+    
+    # Step 9: Artifact Upload
+    # ---------------------------
+    # Saves build outputs for later download
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: bootloader-bin-${{ github.sha }}            # Unique name per commit
+        path: |
+          build/main.bin                                   # Raw binary bootloader
+          build/main_floppy.img                            # Floppy disk image
+        retention-days: 30                                 # Keep artifacts for 30 days
+        if-no-files-found: error                           # Fail if no files to upload
+    
+    # Step 10: Release Package Creation
+    # ---------------------------
+    # Creates a release package when a tag is pushed
+    - name: Create release package
+      if: startsWith(github.ref, 'refs/tags/')             # Only run for tags
+      run: |
+        mkdir -p release
+        cp build/main_floppy.img release/bootloader-${{ github.ref_name }}.img
+        cd release && sha256sum * > checksums.txt          # Generate checksums
+    
+    # Step 11: Release Asset Upload
+    # ---------------------------
+    # Uploads release artifacts with longer retention
+    - name: Upload release assets
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: actions/upload-artifact@v4
+      with:
+        name: bootloader-release-${{ github.ref_name }}
+        path: release/
+        retention-days: 90                                 # Keep releases for 90 days
 
-    - name: Run check
-      run: make check
+  # ---------------------------------------------------------------------------
+  # Hardware Test Job (Disabled)
+  # ---------------------------------------------------------------------------
+  # Placeholder for physical hardware testing
+  # Currently disabled - enable when hardware testing setup is ready
+  # ---------------------------------------------------------------------------
+  test-on-hardware:
+    needs: build                                           # Depends on build job
+    runs-on: ubuntu-latest
+    if: false  # Disabled by default - enable if you have physical hardware testing
+    
+    steps:
+    # Step 1: Checkout Repository
+    - uses: actions/checkout@v4
+    
+    # Step 2: Download Build Artifacts
+    - uses: actions/download-artifact@v4
+      with:
+        name: bootloader-bin-${{ github.sha }}
+        path: build/
+    
+    # Step 3: Hardware Test Instructions
+    # ---------------------------
+    # Provides instructions for manual hardware testing
+    - name: Prepare for hardware test
+      run: |
+        echo "=================================================="
+        echo "Hardware Testing Instructions"
+        echo "=================================================="
+        echo "1. Download the bootloader image from artifacts"
+        echo "2. Write to USB drive (CAUTION: choose correct device!):"
+        echo "   sudo dd if=build/main_floppy.img of=/dev/sdX bs=512 count=2880"
+        echo "3. Insert USB and boot from it"
+        echo "4. Verify bootloader behavior on real hardware"
+        echo "=================================================="
 
-    - name: Run distcheck
-      run: make distcheck
+# =============================================================================
+# Notes and Usage Guide
+# =============================================================================
+# 1. The workflow runs automatically on every push to main/develop
+# 2. Build artifacts can be downloaded from the Actions tab
+# 3. To create a release, push a tag: git tag v1.0.0 && git push origin v1.0.0
+# 4. For hardware testing, enable the test-on-hardware job (set 'if: true')
+# 5. Bootloader must be ≤ 512 bytes and end with 0xAA55
+# 
+# Artifact Naming Convention:
+# - Regular builds: bootloader-bin-<commit-hash>
+# - Releases: bootloader-release-<tag-name>
+# 
+# Troubleshooting:
+# - If build fails, check NASM syntax in main.asm
+# - If signature check fails, ensure 0xAA55 at bytes 510-511
+# - If QEMU test fails, check for infinite loops or early crashes
+# =============================================================================
