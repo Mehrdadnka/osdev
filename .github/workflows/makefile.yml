@@ -1,100 +1,57 @@
-# =============================================================================
-# Bootloader Build CI/CD Pipeline
-# =============================================================================
-# This GitHub Actions workflow automates the build process for the x86 bootloader.
-# It runs on every push to main branch and on pull requests, ensuring that
-# the bootloader compiles correctly and the build artifacts are preserved.
-# =============================================================================
+# ============================================================
+# Bootloader CI/CD Pipeline
+# ============================================================
+# Builds and tests the x86 bootloader on every push/PR to main
+# ============================================================
 
 name: Build Bootloader CI/CD
 
-# =============================================================================
-# Trigger Configuration
-# =============================================================================
-# Defines when the workflow should automatically run
-# =============================================================================
+# Trigger on pushes and PRs to main branch
 on:
-  # Run when code is pushed to the main branch
   push:
     branches: [ "main" ]
-  
-  # Run when a pull request is opened against the main branch
   pull_request:
     branches: [ "main" ]
 
-# =============================================================================
-# Job Definitions
-# =============================================================================
 jobs:
-  # ---------------------------------------------------------------------------
-  # Build Job
-  # ---------------------------------------------------------------------------
-  # Main build job that compiles the bootloader and saves the outputs
-  # ---------------------------------------------------------------------------
   build:
-    # Use the latest Ubuntu Linux runner for maximum compatibility
     runs-on: ubuntu-latest
     
-    # Define all steps required to build the bootloader
     steps:
-    # Step 1: Checkout Repository
-    # ---------------------------
-    # Pulls the latest source code from the repository
-    # This includes the src/main.asm file and Makefile
+    # Step 1: Get the source code
     - uses: actions/checkout@v4
     
-    # Step 2: Install NASM Assembler
-    # ---------------------------
-    # NASM (Netwide Assembler) is required to compile x86 assembly code
-    # Updates package list and installs NASM from Ubuntu repositories
+    # Step 2: Install NASM assembler
     - name: Install NASM
       run: |
         sudo apt-get update
         sudo apt-get install -y nasm
     
-    # Step 3: Compile Bootloader
-    # ---------------------------
-    # Executes the Makefile to assemble the bootloader
-    # This creates:
-    #   - build/main.bin (raw binary bootloader)
-    #   - build/main_floppy.img (floppy disk image)
+    # Step 3: Compile bootloader using Makefile
     - name: Build with make
       run: make
     
-    # Step 4: Upload Build Artifacts
-    # ---------------------------
-    # Saves the compiled files so they can be downloaded later
-    # Artifacts are available in the GitHub Actions UI
+    # Step 4: Save build outputs for download
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        # Name of the artifact folder in GitHub
         name: bootloader-image
-        
-        # Files to include in the artifact
-        # Both the raw binary and floppy image are preserved
         path: |
-          build/main.bin        # Raw bootloader binary (512 bytes)
-          build/main_floppy.img  # Complete floppy disk image (1.44MB)
-        
-        # Optional: How long to keep artifacts (default: 90 days)
-        # retention-days: 30
+          build/main.bin        # Raw 512-byte bootloader
+          build/main_floppy.img  # 1.44MB floppy image
 
-# =============================================================================
-# Workflow Summary
-# =============================================================================
-# What this workflow does:
-# 1. Triggers on every push to main and any PR against main
-# 2. Sets up an Ubuntu environment with NASM installed
-# 3. Runs 'make' to compile the bootloader
-# 4. Saves the compiled files as downloadable artifacts
+# ============================================================
+# What it does:
+# 1. Triggers on code push to main or PR
+# 2. Installs NASM on Ubuntu
+# 3. Runs 'make' to build bootloader
+# 4. Saves outputs as downloadable artifacts
 #
-# Expected Outputs:
-# - main.bin: The raw 512-byte bootloader binary
-# - main_floppy.img: A 1.44MB floppy disk image ready for testing
+# Output files:
+# - main.bin: Raw bootloader binary
+# - main_floppy.img: Bootable floppy image
 #
-# Usage:
-# - After each push, check the "Actions" tab in GitHub
-# - Download artifacts to test the bootloader locally
-# - Artifacts can be used with QEMU or written to real hardware
-# =============================================================================
+# How to use:
+# - Check "Actions" tab after push
+# - Download artifacts to test locally
+# ============================================================
