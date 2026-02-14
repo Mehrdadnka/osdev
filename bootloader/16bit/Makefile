@@ -1,6 +1,6 @@
 # ============================================================
 # Bootloader Build Configuration
-# ============================================================
+#============================================================
 
 # Assembler to use (Netwide Assembler)
 ASM=nasm
@@ -39,11 +39,13 @@ $(BUILD_DIR)/main.bin: $(SRC_DIR)/main.asm | $(BUILD_DIR)
 
 # ============================================================
 # Create build directory if it doesn't exist
-# -p flag : Create parent directories as needed, no error if exists
+# Also create a .gitkeep file to ensure directory is trackable
 # ============================================================
 $(BUILD_DIR):
 	# Create build directory structure
 	mkdir -p $(BUILD_DIR)
+	# Create .gitkeep file to make sure directory is tracked by git
+	touch $(BUILD_DIR)/.gitkeep
 
 # ============================================================
 # Clean up generated files
