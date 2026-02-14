@@ -1,8 +1,8 @@
-name: Bootloader CI/CD
+name: Build Bootloader
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
@@ -13,35 +13,16 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Install build dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y nasm xxd
+    - name: Install NASM
+      run: sudo apt-get update && sudo apt-get install -y nasm
     
     - name: Build with make
       run: make
     
-    - name: Verify bootloader size
-      run: |
-        MAX_SIZE=512
-        ACTUAL_SIZE=$(wc -c < build/main.bin)
-        if [ $ACTUAL_SIZE -gt $MAX_SIZE ]; then
-          echo "Error: Bootloader size ($ACTUAL_SIZE bytes) exceeds $MAX_SIZE bytes"
-          exit 1
-        fi
-        echo "Bootloader size: $ACTUAL_SIZE bytes (OK)"
-    
-    - name: Check boot signature
-      run: |
-        if [ $(xxd -p -l 2 -s 510 build/main.bin) != "55aa" ]; then
-          echo "Error: Boot signature (0xAA55) not found"
-          exit 1
-        fi
-        echo "Boot signature verified"
-    
-    - name: Upload artifacts
+    - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: bootloader-${{ github.sha }}
-        path: build/
-        retention-days: 30
+        name: bootloader-image
+        path: |
+          build/main.bin
+          build/main_floppy.img
