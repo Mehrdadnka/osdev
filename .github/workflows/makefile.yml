@@ -1,4 +1,4 @@
-name: Build Bootloader
+name: Build Bootloader CI/CD
 
 on:
   push:
