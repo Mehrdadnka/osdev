@@ -1,38 +1,60 @@
 ; ============================================================
-; Bootloader - Stage 1
+; Bootloader - Stage 1 (Minimal & Safe)
+; ============================================================
+; Architecture : x86 (Real Mode)
+; Load Address : 0x0000:0x7C00 (Physical 0x7C00)
+; Size Limit   : 512 bytes
+; Environment  : BIOS
 ; ============================================================
 
-; BIOS loads bootloader at physical address 0x7C00
+; ------------------------------------------------------------
+; BIOS loads the first sector to physical address 0x7C00
+; ORG tells the assembler where this code will live in memory
+; ------------------------------------------------------------
 org 0x7C00
-
-; Use 16-bit real mode (BIOS environment)
 bits 16
 
-; ============================================================
-; Main entry point
-; ============================================================
-main:
-    ; Halt the CPU (stop execution)
-    ; This is temporary - we'll add more code later
+start:
+
+    ; --------------------------------------------------------
+    ; 1. Disable interrupts
+    ; Prevent unexpected interrupts before stack is ready
+    ; --------------------------------------------------------
+    cli
+
+    ; --------------------------------------------------------
+    ; 2. Clear segment registers
+    ; Set DS, ES, SS to 0x0000
+    ; Ensures predictable memory addressing
+    ; --------------------------------------------------------
+    xor ax, ax
+    mov ds, ax
+    mov es, ax
+    mov ss, ax
+
+    ; --------------------------------------------------------
+    ; 3. Initialize stack
+    ; Stack grows downward from 0x7C00
+    ; (safe temporary choice for Stage 1)
+    ; --------------------------------------------------------
+    mov sp, 0x7C00
+
+    ; --------------------------------------------------------
+    ; 4. Halt safely
+    ; Use CLI + HLT loop to avoid undefined execution
+    ; --------------------------------------------------------
+.hang:
     hlt
+    jmp .hang
 
 ; ============================================================
-; Infinite halt loop
-; Prevents CPU from executing garbage after our code
+; Boot Sector Padding
+; Fill remaining bytes up to 510 with zeros
 ; ============================================================
-.halt:
-    jmp .halt
-
-; ============================================================
-; Boot sector padding and signature
-; ============================================================
-
-; Fill the rest of the 512-byte boot sector with zeros
-; 510 - ($-$$) calculates remaining bytes
-; $  : current address
-; $$ : start address of current section
 times 510-($-$$) db 0
 
-; Boot signature (0xAA55)
-; BIOS checks this to verify it's a valid boot sector
-dw 0AA55h
+; ============================================================
+; Boot Signature (Required by BIOS)
+; Must be exactly 0xAA55 at bytes 511-512
+; ============================================================
+dw 0xAA55
