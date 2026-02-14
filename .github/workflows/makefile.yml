@@ -1,4 +1,4 @@
-name: Bootloader CI/CD
+name: Bootloader 16bit CI/CD
 
 on:
   push:
