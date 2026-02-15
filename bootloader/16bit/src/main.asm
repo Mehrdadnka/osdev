@@ -119,8 +119,10 @@ print_string:
 ; The final 0 marks the end so the print loop knows when to stop.
 ; ------------------------------------------------------------
 
-msg db 'Bootloader stage 1 loaded!', 0
-
+msg:
+    db 'Bootloader stage 1 loaded!', 13, 10
+    times 8 db 0
+    
     ; --------------------------------------------------------
     ; 4. Halt safely
     ; Use CLI + HLT loop to avoid undefined execution
