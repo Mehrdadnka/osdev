@@ -1,40 +1,50 @@
 ; ============================================================
 ; DESIGN NOTES
 ; ------------------------------------------------------------
-; - We assume BIOS loads us at 0x0000:0x7C00
-; - CS normalization intentionally skipped
-; - Stack placed at 0x7C00 for minimal usage
-; - Only BIOS teletype interrupt (int 0x10, ah=0x0E) used
-; ============================================================
-
-; ============================================================
-; Bootloader - Stage 1 (Minimal & Safe)
-; ============================================================
-; Architecture : x86 (Real Mode)
-; Load Address : 0x0000:0x7C00 (Physical 0x7C00)
-; Size Limit   : 512 bytes
-; Environment  : BIOS
+; Bootloader Stage 1 (Minimal & Safe)
+; ------------------------------------------------------------
+; - Architecture: x86 (Real Mode)
+; - Load Address: 0x0000:0x7C00 (physical 0x7C00)
+; - Size Limit: 512 bytes (1 sector)
+; - Environment: BIOS
+; - Dependencies: Only BIOS teletype interrupt (int 0x10, AH=0x0E)
+; - CS normalization intentionally skipped for simplicity
+; - Stack temporarily placed at 0x7BE0 for minimal usage
 ; ============================================================
 
 ; ------------------------------------------------------------
 ; BIOS loads the first sector to physical address 0x7C00
-; ORG tells the assembler where this code will live in memory
+; ORG directive tells the assembler the intended memory location
 ; ------------------------------------------------------------
 org 0x7C00
 bits 16
 
+; ============================================================
+; Data Section
+; ------------------------------------------------------------
+; msg: Null-terminated string to print
+; The final 0 marks the end of the string for the print loop
+; ============================================================
+msg:
+    db 'Bootloader stage 1 loaded!', 13, 10
+    times 8 db 0           ; padding (optional, not used)
+
+; ============================================================
+; Code Section
+; ------------------------------------------------------------
+; Entry point: start
+; -----------------------------------------------------------
 start:
 
     ; --------------------------------------------------------
-    ; 1. Disable interrupts
-    ; Prevent unexpected interrupts before stack is ready
+    ; 1. Disable interrupts temporarily
+    ; Prevents unexpected interrupts before stack and segments are ready
     ; --------------------------------------------------------
     cli
 
     ; --------------------------------------------------------
-    ; 2. Clear segment registers
-    ; Set DS, ES, SS to 0x0000
-    ; Ensures predictable memory addressing
+    ; 2. Initialize segment registers
+    ; DS, ES, SS set to 0x0000 for predictable memory addressing
     ; --------------------------------------------------------
     xor ax, ax
     mov ds, ax
@@ -43,102 +53,86 @@ start:
 
     ; --------------------------------------------------------
     ; 3. Initialize stack
-    ; Stack grows downward from 0x7C00
-    ; (safe temporary choice for Stage 1)
+    ; Stack grows downward from 0x7BE0
+    ; Safe temporary choice for Stage 1
     ; --------------------------------------------------------
-    mov sp, 0x7C00
+    mov sp, 0x7BE0
 
+    ; --------------------------------------------------------
+    ; 4. Print the boot message
+    ; Usage:
+    ;    mov si, msg
+    ;    call print_string
+    ; Requirements:
+    ;    - DS points to the segment containing 'msg'
+    ;    - Direction Flag cleared (CLD)
+    ; Behavior:
+    ;    - Reads bytes from DS:SI
+    ;    - Stops at null terminator
+    ;    - Prints each character via BIOS int 0x10, AH=0x0E
+    ; --------------------------------------------------------
+    mov si, msg
+    call print_string
 
-; ------------------------------------------------------------
-; Print a null-terminated string using BIOS teletype service
-; ------------------------------------------------------------
-; Usage:
-;   mov si, msg
-;   call print_string
-;
-; Requirements:
-;   - DS must point to the segment where 'msg' is located
-;   - Direction Flag must be clear for forward string reading
-;
-; Behavior:
-;   - Reads bytes one-by-one from DS:SI
-;   - Stops when it encounters 0x00 (null terminator)
-;   - Prints each character using BIOS interrupt 0x10
-;
-; BIOS Service Used:
-;   int 0x10, AH=0x0E  (Teletype Output)
-;   - Prints AL to screen
-;   - Advances cursor automatically
-;   - Works in real mode without extra setup
-; ------------------------------------------------------------
+    ; --------------------------------------------------------
+    ; 5. Halt the CPU safely
+    ; Disable interrupts and enter infinite HLT loop
+    ; --------------------------------------------------------
+    cli
+    jmp .hang
 
-    mov si, msg        ; SI = offset of the string (DS:SI points to first char)
-    call print_string  ; print until null terminator
-
-    cli                ; disable interrupts (we are done executing)
-    
-; ------------------------------------------------------------
-; print_string
+; ============================================================
+; Subroutine: print_string
 ; ------------------------------------------------------------
 ; Prints a null-terminated string pointed to by DS:SI
 ;
 ; Registers used:
-;   SI - string pointer
+;   SI - pointer to current character
 ;   AL - current character
-;   AH - BIOS function selector
+;   AH - BIOS function selector (0x0E)
 ;
-; Clobbers:
+; Clobbered registers:
 ;   AL, AH, SI
 ;
 ; Notes:
-;   - 'cld' ensures LODSB increments SI (forward direction)
+;   - CLD ensures SI increments on LODSB
 ;   - Safe for minimal Stage 1 debugging output
-; ------------------------------------------------------------
-
+; ============================================================
 print_string:
-    cld                ; clear Direction Flag to ensure SI increments
+    cld                 ; Clear Direction Flag
 
 .loop:
-    lodsb              ; load byte from DS:SI into AL, then SI++
-    or al, al          ; check if AL == 0 (null terminator)
-    jz .done           ; if zero, end of string reached
+    lodsb               ; Load byte from DS:SI into AL, increment SI
+    test al, al         ; Check for null terminator (0x00)
+    jz .done            ; Exit loop if end of string
 
-    mov ah, 0x0E       ; BIOS teletype function
-    int 0x10           ; print character in AL
+    mov ah, 0x0E        ; BIOS teletype function
+    int 0x10            ; Print character in AL
 
-    jmp .loop          ; continue with next character
+    jmp .loop           ; Continue with next character
 
 .done:
-    ret                ; return to caller
+    ret                 ; Return to caller
 
-
+; ============================================================
+; Infinite halt loop
 ; ------------------------------------------------------------
-; Data Section
-; ------------------------------------------------------------
-; Null-terminated string.
-; The final 0 marks the end so the print loop knows when to stop.
-; ------------------------------------------------------------
-
-msg:
-    db 'Bootloader stage 1 loaded!', 13, 10
-    times 8 db 0
-    
-    ; --------------------------------------------------------
-    ; 4. Halt safely
-    ; Use CLI + HLT loop to avoid undefined execution
-    ; --------------------------------------------------------
+; Halts CPU safely after execution
+; ============================================================
 .hang:
     hlt
     jmp .hang
 
 ; ============================================================
 ; Boot Sector Padding
+; ------------------------------------------------------------
 ; Fill remaining bytes up to 510 with zeros
 ; ============================================================
 times 510-($-$$) db 0
 
 ; ============================================================
 ; Boot Signature (Required by BIOS)
+; ------------------------------------------------------------
 ; Must be exactly 0xAA55 at bytes 511-512
 ; ============================================================
 dw 0xAA55
