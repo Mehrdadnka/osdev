@@ -55,34 +55,48 @@ qemu-system-x86_64 -drive file=build/main_floppy.img,format=raw,if=floppy
 
 Bootloader stage 1 loaded!
 
+Troubleshooting
+"Boot failed: could not read the boot disk"
+If you see this message followed by your bootloader output:
 
----
+text
+Booting from Floppy...
+Boot failed: could not read the boot disk
+Booting from Hard Disk...
+Bootloader stage 1 loaded!
+This is normal and NOT an error in our bootloader.
+
+The message comes from the BIOS/SeaBIOS during the boot process:
+
+BIOS first attempts to boot from a floppy disk (which doesn't exist in most QEMU setups)
+
+When it fails to read from the floppy, it shows "Boot failed: could not read the boot disk"
+
+BIOS then moves to the next boot device (hard disk) and successfully loads our bootloader
+
+To suppress this message and boot directly from the hard disk image:
+
+bash
+qemu-system-x86_64 -drive format=raw,file=build/main.bin -boot order=c
+The -boot order=c option tells QEMU to only attempt booting from the first hard disk, skipping the floppy check entirely.
 
 Code Overview
-
 1. start
-
 Disable interrupts (cli)
 
 Initialize segments (DS = ES = SS = 0x0000)
 
 Set up the stack (SP = 0x7BE0)
 
-
 2. print_string
-
 Reads bytes from DS:SI until a null terminator
 
 Prints each character using BIOS teletype (INT 0x10, AH=0x0E)
 
-
-3. hang
-
+3. hang_loop
 Halts execution safely with a CLI + HLT loop
 
-
 4. Padding
-
 Zero-fill remaining bytes up to 510
 
 Add boot signature 0xAA55
