@@ -59,7 +59,6 @@ Troubleshooting
 "Boot failed: could not read the boot disk"
 If you see this message followed by your bootloader output:
 
-text
 Booting from Floppy...
 Boot failed: could not read the boot disk
 Booting from Hard Disk...
@@ -76,7 +75,6 @@ BIOS then moves to the next boot device (hard disk) and successfully loads our b
 
 To suppress this message and boot directly from the hard disk image:
 
-bash
 qemu-system-x86_64 -drive format=raw,file=build/main.bin -boot order=c
 The -boot order=c option tells QEMU to only attempt booting from the first hard disk, skipping the floppy check entirely.
 
