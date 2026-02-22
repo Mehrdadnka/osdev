@@ -20,16 +20,6 @@ org 0x7C00
 bits 16
 
 ; ============================================================
-; Data Section
-; ------------------------------------------------------------
-; msg: Null-terminated string to print
-; The final 0 marks the end of the string for the print loop
-; ============================================================
-msg:
-    db 'Bootloader stage 1 loaded!', 13, 10
-    times 8 db 0           ; padding (optional, not used)
-
-; ============================================================
 ; Code Section
 ; ------------------------------------------------------------
 ; Entry point: start
@@ -78,8 +68,7 @@ start:
     ; 5. Halt the CPU safely
     ; Disable interrupts and enter infinite HLT loop
     ; --------------------------------------------------------
-    cli
-    jmp .hang
+    jmp hang_loop
 
 ; ============================================================
 ; Subroutine: print_string
@@ -114,14 +103,26 @@ print_string:
 .done:
     ret                 ; Return to caller
 
+
+; ============================================================
+; Data Section
+; ------------------------------------------------------------
+; msg: Null-terminated string to print
+; The final 0 marks the end of the string for the print loop
+; ============================================================
+msg:
+    db 'Bootloader stage 1 loaded!', 13, 10
+    times 8 db 0           ; padding (optional, not used)
+
 ; ============================================================
 ; Infinite halt loop
 ; ------------------------------------------------------------
 ; Halts CPU safely after execution
 ; ============================================================
-.hang:
+hang_loop:
+    cli
     hlt
-    jmp .hang
+    jmp hang_loop
 
 ; ============================================================
 ; Boot Sector Padding
