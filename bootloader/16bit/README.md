@@ -3,7 +3,6 @@
 This folder contains Stage 1 of a custom OS bootloader.
 It runs in BIOS real mode (16-bit) and provides minimal functionality: printing a message to the screen and halting safely.
 
-
 ---
 
 Features
@@ -23,8 +22,6 @@ Safe Halt: uses CLI + HLT loop
 Size: 512 bytes (padded with zeros and ends with boot signature 0xAA55)
 
 BIOS Services Used: teletype output only
-
-
 
 ---
 
@@ -55,7 +52,10 @@ qemu-system-x86_64 -drive file=build/main_floppy.img,format=raw,if=floppy
 
 Bootloader stage 1 loaded!
 
+---
+
 Troubleshooting
+
 "Boot failed: could not read the boot disk"
 If you see this message followed by your bootloader output:
 
@@ -80,7 +80,10 @@ bash
 qemu-system-x86_64 -drive format=raw,file=build/main.bin -boot order=c
 The -boot order=c option tells QEMU to only attempt booting from the first hard disk, skipping the floppy check entirely.
 
+---
+
 Code Overview
+
 1. start
 Disable interrupts (cli)
 
