@@ -44,8 +44,8 @@ sequenceDiagram
     BIOS_INT->>Screen: Teletype output
     Bootloader->>Bootloader: cli ; hlt loop
     deactivate Bootloader
-
 ```
+
 ---
 
 Usage
