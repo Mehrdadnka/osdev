@@ -28,23 +28,10 @@ BIOS Services Used: teletype output only
 
 Control Flow Diagram 
 
-```mermaid
-sequenceDiagram
-    participant BIOS
-    participant Bootloader
-    participant BIOS_INT
-    participant Screen
 
-    BIOS->>Bootloader: Load 512 bytes to 0x7C00 & jump
-    activate Bootloader
-    Bootloader->>Bootloader: cli
-    Bootloader->>Bootloader: DS/ES/SS = 0
-    Bootloader->>Bootloader: SP = 0x7BE0
-    Bootloader->>BIOS_INT: int 0x10 (AH=0x0E)
-    BIOS_INT->>Screen: Teletype output
-    Bootloader->>Bootloader: cli ; hlt loop
-    deactivate Bootloader
-```
+<p align="center">
+  <img src="diagram.jpg" width="600">
+</p>
 
 ---
 
