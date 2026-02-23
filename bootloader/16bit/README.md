@@ -9,7 +9,7 @@ Features
 
 Load Address: 0x7C00 (BIOS loads the first sector here)
 
-Architecture: x86 16-bit real mode
+Architecture: x86 (IA-32) in 16-bit Real Mode
 
 Stack: located at 0x7BE0, grows downward
 
@@ -23,6 +23,29 @@ Size: 512 bytes (padded with zeros and ends with boot signature 0xAA55)
 
 BIOS Services Used: teletype output only
 
+
+---
+
+Control Flow Diagram 
+
+```mermaid
+sequenceDiagram
+    participant BIOS
+    participant Bootloader
+    participant BIOS_INT
+    participant Screen
+
+    BIOS->>Bootloader: Load 512 bytes to 0x7C00 & jump
+    activate Bootloader
+    Bootloader->>Bootloader: cli
+    Bootloader->>Bootloader: DS/ES/SS = 0
+    Bootloader->>Bootloader: SP = 0x7BE0
+    Bootloader->>BIOS_INT: int 0x10 (AH=0x0E)
+    BIOS_INT->>Screen: Teletype output
+    Bootloader->>Bootloader: cli ; hlt loop
+    deactivate Bootloader
+
+```
 ---
 
 Usage
