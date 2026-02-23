@@ -4,6 +4,14 @@ This folder contains Stage 1 of a custom OS bootloader.
 It runs in BIOS real mode (16-bit) and provides minimal functionality: printing a message to the screen and halting safely.
 
 ---
+Screenshot
+
+
+<p align="center">
+  <img src="screenshot.png" width="600">
+</p>
+
+---
 
 Features
 
